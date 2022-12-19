@@ -1,0 +1,39 @@
+```{r}
+library(ggplot2)
+library(dplyr)
+data = read.csv("housing_clean.csv")
+eda = subset(data,select = c("county", "population"))
+eda2 = subset(eda, county==c("Columbia County", "Dutchess County", "Rensselaer County"))
+eda2 = unique(eda2)
+head(eda2)
+```
+```{r}
+ggplot(data=eda2, aes(x=population, y=county)) +
+  geom_bar(stat='identity', aes(fill=population)) +
+  coord_flip() +
+  theme_grey() + 
+  scale_fill_gradient(name="Population Density") +
+  labs(title="Population per County", y="County", x="Population") +
+  geom_hline(yintercept = mean(data$population), size=1, color='blue')
+```
+
+```{r}
+head(data)
+```
+
+```{r}
+glimpse(data)
+```
+```{r}
+library("psych")
+
+df = data[,c("price", "bed", "acre_lot", "house_size", "population", "RAPE", "ROBBERY", "AGASSLT", "BURGLRY", "MURDER", "COVIND")]
+res = cor(df)
+res
+
+corPlot(df, numbers=TRUE, cex=0.5, MAR=7, min.length = 2)
+```
+```{r}
+which(is.na(data))
+```
+

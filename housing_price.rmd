@@ -1,0 +1,136 @@
+```{r}
+data = read.csv("housing_clean.csv")
+factor_list = c('unemployment_median_household_income_2019')
+
+data$unemployment_median_household_income_2019 = as.factor(data$unemployment_median_household_income_2019)
+data$county = as.factor(data$county)
+data$zip_code = as.factor(data$zip_code)
+data$population_births_2019 = as.factor(data$population_births_2019)
+data$population_deaths_2019 = as.factor(data$population_deaths_2019)
+data$population_net_international_migration_2019  = as.factor(data$population_net_international_migration_2019 )
+data$population_net_domestic_migration_2019 = as.factor(data$population_net_domestic_migration_2019)
+data$population_net_migration_2019 = as.factor(data$unemployment_civilian_labor_force_202)
+data$unemployment_civilian_labor_force_202 = as.factor(data$unemployment_median_household_income_2019)
+data$unemployment_employed_2020   = as.factor(data$unemployment_employed_2020)
+data$unemployment_unemployed_2020 = as.factor(data$unemployment_unemployed_2020)
+data$unemployment_unemployment_rate_202 = as.factor(data$unemployment_unemployment_rate_202)
+data$education_percent_of_adults_with_less_than_a_high_school_diploma_2015.19 = as.factor(data$education_percent_of_adults_with_less_than_a_high_school_diploma_2015.19)
+data$education_percent_of_adults_with_a_high_school_diploma_only_2015.19 = as.factor(data$education_percent_of_adults_with_a_high_school_diploma_only_2015.19)
+data$education_percent_of_adults_completing_some_college_or_associate.s_degree_2015.19 = as.factor(data$education_percent_of_adults_completing_some_college_or_associate.s_degree_2015.19)
+data$education_percent_of_adults_with_a_bachelor.s_degree_or_higher_2015.19 = as.factor(data$education_percent_of_adults_with_a_bachelor.s_degree_or_higher_2015.19)
+data$population_by_age_total_Under_5_2019 = as.factor(data$population_by_age_total_Under_5_2019)
+data$population_by_age_total_5_13_2019 = as.factor(data$population_by_age_total_5_13_2019)
+data$population_by_age_total_14_17_2019 = as.factor(data$population_by_age_total_14_17_2019)
+data$population_by_age_total_18_24_2019 = as.factor(data$population_by_age_total_18_24_2019)
+data$population_by_age_total_16_over_2019 = as.factor(data$population_by_age_total_16_over_2019)
+data$population_by_age_total_18_over_201 = as.factor(data$population_by_age_total_18_over_201)
+data$population_by_age_total_15_44_2019 = as.factor(data$population_by_age_total_15_44_2019)
+data$population_by_age_total_25_44_2019 = as.factor(data$population_by_age_total_25_44_2019)
+data$population_by_age_total_45_64_2019 = as.factor(data$population_by_age_total_45_64_2019)
+data$population_by_age_total_65_over_201 = as.factor(data$population_by_age_total_65_over_201)
+data$crime_rate_per_100000   = as.factor(data$crime_rate_per_100000)
+data$CPOPARST = as.factor(data$CPOPARST)
+data$AG_ARRST = as.factor(data$AG_ARRST)
+data$AG_OFF = as.factor(data$AG_OFF)
+data$COVIND = as.factor(data$COVIND)
+data$MURDER = as.factor(data$MURDER)
+data$RAPE = as.factor(data$RAPE)
+data$ROBBERY = as.factor(data$ROBBERY)
+data$AGASSLT = as.factor(data$AGASSLT)
+data$BURGLRY = as.factor(data$BURGLRY)
+data$LARCENY = as.factor(data$LARCENY)
+data$MVTHEFT = as.factor(data$MVTHEFT)
+data$ARSON = as.factor(data$ARSON)
+data$population = as.factor(data$population)
+
+
+
+head(data)
+full_model = lm(price ~ ., data)
+summary(full_model)
+
+#Lots of NA means lots of correlation 
+library(MASS)
+step.model <- stepAIC(full_model, direction = "both", 
+                      trace = FALSE)
+summary(step.model)
+
+final_model = lm(formula = price ~ bed + bath + acre_lot + factor(zip_code) + house_size + 
+                   lot_flag + as.factor(COVIND), data = data)
+
+summary(final_model)
+##First random forest for expensive vs inexpensive house
+library(caTools)
+library(randomForest)
+
+median_price = median(data$price)
+data$expensive = data$price > median_price
+data$expensive = as.factor(data$expensive)
+
+split <- sample.split(data, SplitRatio = 0.8)
+split
+
+train <- subset(data, split == "TRUE")
+test <- subset(data, split == "FALSE")
+train$expensive
+
+train[, !names(train) %in% c("price", "expensive")] 
+
+classifier_RF = randomForest(x = train[, !names(train) %in% c("price", "expensive")],
+                             y = train$expensive,
+                             ntree = 500)
+classifier_RF
+y_pred = predict(classifier_RF, newdata = test[, !names(test) %in% c("price", "expensive")] )
+length(y_pred)
+nrow(test)
+colnames(test[, !names(test) %in% c("price", "expensive")])
+confusion_mtx = table(test$expensive , y_pred)
+confusion_mtx
+
+summary(classifier_RF)
+
+y_pred_total = predict(classifier_RF, newdata = data[, !names(data) %in% c("price", "expensive")] )
+y_pred_total
+data$expensive_pred = y_pred_total
+data$expensive_pred
+data
+data_expensive = data[data$expensive_pred == TRUE, ]
+data_inexpensive = data[data$expensive_pred == FALSE, ]
+
+
+summary(final_model)
+
+final_model_expensive = lm(formula = price ~ bed + bath + acre_lot + as.factor(zip_code) + house_size + 
+                   lot_flag, data = data_expensive)
+
+summary(final_model_expensive)
+final_model_inexpensive = lm(formula = price ~ bed + bath + acre_lot + as.factor(zip_code) + house_size + 
+                   lot_flag, data = data_inexpensive)
+
+summary(final_model_inexpensive)
+
+
+bc <- boxcox(data_expensive$price ~ data_expensive$bed + data_expensive$bath + data_expensive$acre_lot + as.factor(data_expensive$zip_code) + data_expensive$house_size + 
+               data_expensive$lot_flag)
+(lambda <- bc$x[which.max(bc$y)])
+
+bc <- boxcox(data_inexpensive$price ~ data_inexpensive$bed + data_inexpensive$bath + data_inexpensive$acre_lot + as.factor(data_inexpensive$zip_code) + data_inexpensive$house_size + 
+               data_inexpensive$lot_flag)
+(lambda <- bc$x[which.max(bc$y)])
+
+plot(final_model_inexpensive)
+plot(final_model_expensive)
+
+
+final_model_expensive = lm(formula = log(price) ~ bed + bath + acre_lot + as.factor(zip_code) + house_size + 
+                             lot_flag, data = data_expensive)
+
+summary(final_model_expensive)
+plot(final_model_expensive)
+
+final_model_inexpensive = lm(formula = log(price) ~ bed + bath + acre_lot + as.factor(zip_code) + house_size + 
+                               lot_flag, data = data_inexpensive)
+
+summary(final_model_inexpensive)
+plot(final_model_inexpensive)
+```
